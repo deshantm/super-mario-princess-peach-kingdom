@@ -1,95 +1,121 @@
+# main.py
+
 import pygame
-import sys
-import random
+from pygame import mixer
+from character import Character
+from enemy import Enemy
+from constants import *
 
-# Initialize Pygame
-pygame.init()
+def setup_characters():
+    CHARACTER_WIDTH = 50
+    CHARACTER_HEIGHT = 50
 
-# Set up the window
-WINDOWWIDTH = 800
-WINDOWHEIGHT = 600
-windowSurface = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT), 0, 32)
-pygame.display.set_caption('Super Mario Princess Peach Kingdom')
+    mario_image = pygame.image.load("mario.webp")
+    mario_image = pygame.transform.scale(mario_image, (CHARACTER_WIDTH, CHARACTER_HEIGHT))
+    luigi_image = pygame.image.load("luigi.webp")
+    luigi_image = pygame.transform.scale(luigi_image, (CHARACTER_WIDTH, CHARACTER_HEIGHT))
+    daisy_image = pygame.image.load("daisy.webp")
+    daisy_image = pygame.transform.scale(daisy_image, (CHARACTER_WIDTH, CHARACTER_HEIGHT))
+    peach_image = pygame.image.load("princess-peach.webp")
+    peach_image = pygame.transform.scale(peach_image, (CHARACTER_WIDTH, CHARACTER_HEIGHT))
+    toad_image = pygame.image.load("toad.webp")
+    toad_image = pygame.transform.scale(toad_image, (CHARACTER_WIDTH, CHARACTER_HEIGHT))
+    bowser_image = pygame.image.load("bowser.webp")
+    bowser_image = pygame.transform.scale(bowser_image, (CHARACTER_WIDTH, CHARACTER_HEIGHT))
 
-# Set up the colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-GREEN = (0, 255, 0)
-BLUE = (0, 0, 255)
+    mario = Character(mario_image, 100, 100)
+    luigi = Character(luigi_image, 200, 100)
+    daisy = Character(daisy_image, 300, 100)
+    peach = Character(peach_image, 400, 100)
+    toad = Character(toad_image, 500, 100)
+    bowser = Enemy(700, 100, CHARACTER_WIDTH, CHARACTER_HEIGHT, RED)
 
-# Set up the fonts
-basicFont = pygame.font.SysFont(None, 48)
+    return mario, luigi, daisy, peach, toad, bowser
 
+def setup_castles():
+    bowsers_castle = pygame.Rect(50, 50, 100, 100)
+    princess_peach_castle = pygame.Rect(WINDOWWIDTH - 150, WINDOWHEIGHT - 150, 100, 100)
+    return bowsers_castle, princess_peach_castle
 
+def main():
+    pygame.init()
+    mixer.init()
+    mixer.music.load("Kings-of-Freedom.mp3")
+    mixer.music.play(-1)
 
+    window = pygame.display.set_mode((WINDOWWIDTH, WINDOWHEIGHT))
+    pygame.display.set_caption("Super Mario: Princess Peach's Kingdom")
 
-# Set up the text
-text = basicFont.render('Welcome to Super Mario Princess Peach Kingdom', True, WHITE, BLUE)
-textRect = text.get_rect()
-textRect.centerx = windowSurface.get_rect().centerx
-textRect.centery = windowSurface.get_rect().centery
+    mario, luigi, daisy, peach, toad, bowser = setup_characters()
+    bowsers_castle, princess_peach_castle = setup_castles()
 
+    trail_colors = {
+        mario: RED,
+        luigi: GREEN,
+        daisy: ORANGE,
+        peach: PINK,
+        toad: WHITE
+    }
 
-# Draw the background and shapes
-windowSurface.fill(WHITE)
-pygame.draw.polygon(windowSurface, GREEN, ((146, 0), (291, 106), (236, 277), (56, 277), (0, 106)))
-pygame.draw.line(windowSurface, BLUE, (60, 60), (120, 60), 4)
-pygame.draw.line(windowSurface, BLUE, (120, 60), (60, 120))
-pygame.draw.line(windowSurface, BLUE, (60, 120), (120, 120), 4)
-pygame.draw.circle(windowSurface, BLUE, (300, 50), 20, 0)
-pygame.draw.ellipse(windowSurface, RED, (300, 250, 40, 80), 1)
-pygame.draw.rect(windowSurface, RED, (textRect.left - 20, textRect.top - 20, textRect.width + 40, textRect.height + 40))
+    for character, color in trail_colors.items():
+        character.trail_color = color
 
+    selected_character = None
 
-# Pixel manipulation (do this before locking issues can occur)
-pixArray = pygame.PixelArray(windowSurface)
-pixArray[480][380] = BLACK
-del pixArray  # Immediately unlock the surface after modification
+    clock = pygame.time.Clock()
 
-# Draw the text onto the surface (ensure this is done after pixel array is deleted)
-windowSurface.blit(text, textRect)
+    trail_surface = pygame.Surface((WINDOWWIDTH, WINDOWHEIGHT), pygame.SRCALPHA)
 
-# Draw the window onto the screen
-pygame.display.update()
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if selected_character is None:
+                    for character in [mario, luigi, daisy, peach, toad]:
+                        if character.rect.collidepoint(event.pos):
+                            selected_character = character
+                            break
+            elif event.type == pygame.MOUSEBUTTONUP:
+                selected_character = None
 
-elipse_x = 300
-elipse_y = 250
+        if selected_character:
+            mouse_pos = pygame.mouse.get_pos()
+            selected_character.rect.centerx = mouse_pos[0]
+            selected_character.rect.centery = mouse_pos[1]
 
-# Run the game loop
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-    #move the elipse
-            
-   
-            
-    #use parameters to move the elipse
-    pygame.draw.ellipse(windowSurface, RED, (elipse_x, elipse_y, 40, 80), 1)
-    #remove previous elipse
-    pygame.draw.ellipse(windowSurface, WHITE, (elipse_x - 1, elipse_y - 1, 42, 82), 1)
+        for character in [mario, luigi, daisy, peach, toad]:
+            if character != selected_character:
+                character.move_ai(3, WINDOWWIDTH, WINDOWHEIGHT)
 
+        bowser.chase_player(selected_character)
 
-    #redraw the textbox on top of the elipse
-    windowSurface.blit(text, textRect)
-    #update the display
-    
+        for character in [mario, luigi, daisy, peach, toad]:
+            character.check_castle_collisions(bowsers_castle, princess_peach_castle)
 
+        #trail_surface.fill((0, 0, 0, 0))  # Clear the trail surface
 
-    elipse_x += 1
-    elipse_y += 1
-    if elipse_x > 400:
-        elipse_x = 300
+        for character in [mario, luigi, daisy, peach, toad]:
+            character.update()
+            character.draw_trail(trail_surface, [bowsers_castle, princess_peach_castle])
 
+        window.fill(WHITE)
 
-    if elipse_y > 350:
-        elipse_y = 250
+        pygame.draw.rect(window, RED, bowsers_castle)
+        pygame.draw.rect(window, PINK, princess_peach_castle)
 
-    
-    pygame.display.update()
+        bowser.draw(window)
 
-    # Game loop logic here. Avoid creating/deleting PixelArray unless necessary.
-    # Update display only if needed to avoid unnecessary performance hit.
-    # pygame.display.update() could be called here if you're making changes that need to be displayed in real-time.
+        window.blit(trail_surface, (0, 0))  # Draw the trail surface on the main window
+
+        for character in [mario, luigi, daisy, peach, toad]:
+            character.draw(window)
+
+        pygame.display.update()
+        clock.tick(60)
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()
